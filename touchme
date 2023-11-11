@@ -1,0 +1,85 @@
+#!/usr/bin/env python3
+import multiprocessing as mp
+import os
+
+from libinput import get_absinfo, get_touchpad_device, touchpad_evdev
+
+if os.environ["XDG_SESSION_TYPE"] == "wayland":
+    os.environ["SDL_VIDEODRIVER"] = "wayland"  # wayland fix
+os.environ["PYGAME_HIDE_SUPPORT_PROMPT"] = "1"
+
+import pygame
+
+SCALE = 6
+DEVICE = get_touchpad_device()
+FPS = 60
+
+
+absinfo = get_absinfo(DEVICE)
+
+MAX_X = absinfo[0][1] // SCALE
+MAX_Y = absinfo[1][1] // SCALE
+WINDOW = MAX_X, MAX_Y
+
+# evdev process setup
+x = mp.Value("i", 0)
+y = mp.Value("i", 0)
+event_process = mp.Process(target=touchpad_evdev, args=(x, y, DEVICE))
+event_process.start()
+
+
+############################
+####### PYGame Setup #######
+############################
+pygame.init()
+pygame.display.set_caption("TouchMe")
+game_clock = pygame.time.Clock()
+base_surface = pygame.display.set_mode(WINDOW)
+
+
+class Square(pygame.sprite.Sprite):
+    SQUARE_DIM = (10, 10)
+    OFFSET = SQUARE_DIM[0] // 2, SQUARE_DIM[1] // 2
+
+    def __init__(self) -> None:
+        super(Square, self).__init__()
+        self.surf = pygame.Surface(self.SQUARE_DIM)
+        self.surf.fill((255, 255, 255))
+        self.rect = self.surf.get_rect()
+
+
+def is_quit_event(events):
+    for e in events:
+        if e.type == pygame.KEYDOWN and (e.key in (pygame.K_ESCAPE, pygame.K_q)):
+            return True
+
+        if e.type == pygame.QUIT:
+            return True
+
+    return False
+
+
+pointer = Square()
+font = pygame.font.SysFont("jetbrainsmononerdfont", 18)
+
+pygame.mouse.set_visible(False)
+while True:
+    if is_quit_event(pygame.event.get()):
+        break
+
+    pos = (x.value // SCALE, y.value // SCALE)
+
+    base_surface.fill((0, 0, 0))
+
+    pointer.rect.update((pos[0] - 5, pos[1] - 5), pointer.rect.size)
+    base_surface.blit(pointer.surf, pointer.rect)
+
+    text = font.render(f"({pos[0]}, {pos[1]})/{WINDOW}", True, (255, 255, 255))
+    base_surface.blit(text, [0, WINDOW[1] - 24])
+
+    pygame.display.update()
+    game_clock.tick(FPS)
+
+pygame.mouse.set_visible(True)
+pygame.quit()
+event_process.terminate()
