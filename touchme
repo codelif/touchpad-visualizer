@@ -22,9 +22,8 @@ MAX_Y = absinfo[1][1] // SCALE
 WINDOW = MAX_X, MAX_Y
 
 # evdev process setup
-x = mp.Value("i", 0)
-y = mp.Value("i", 0)
-event_process = mp.Process(target=touchpad_evdev, args=(x, y, DEVICE))
+pos = mp.Array("i", [-1] * 10)
+event_process = mp.Process(target=touchpad_evdev, args=(pos, DEVICE))
 event_process.start()
 
 
@@ -59,23 +58,21 @@ def is_quit_event(events):
     return False
 
 
-pointer = Square()
-font = pygame.font.SysFont("jetbrainsmononerdfont", 18)
+pointers = [Square(), Square(), Square(), Square(), Square()]
 
 pygame.mouse.set_visible(False)
 while True:
     if is_quit_event(pygame.event.get()):
         break
 
-    pos = (x.value // SCALE, y.value // SCALE)
-
     base_surface.fill((0, 0, 0))
-
-    pointer.rect.update((pos[0] - 5, pos[1] - 5), pointer.rect.size)
-    base_surface.blit(pointer.surf, pointer.rect)
-
-    text = font.render(f"({pos[0]}, {pos[1]})/{WINDOW}", True, (255, 255, 255))
-    base_surface.blit(text, [0, WINDOW[1] - 24])
+    # print(pos[:])
+    for i, pointer in enumerate(pointers):
+        p = (pos[i * 2] // SCALE, pos[i * 2 + 1] // SCALE)
+        if p == (-1, -1):
+            continue
+        pointer.rect.update((p[0] - 5, p[1] - 5), pointer.rect.size)
+        base_surface.blit(pointer.surf, pointer.rect)
 
     pygame.display.update()
     game_clock.tick(FPS)

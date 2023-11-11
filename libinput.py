@@ -2,26 +2,30 @@
 import struct
 import subprocess
 
+UNSIGNED_LIMIT = 4294967295
 
-def touchpad_evdev(x, y, device):
+
+def touchpad_evdev(pos, device):
     STRUCT_FORMAT = "llHHI"
     EVENT_SIZE = struct.calcsize(STRUCT_FORMAT)
 
+    CUR_TRACK = 0
     with open(device, "rb") as buffer:
-        event = buffer.read(EVENT_SIZE)
+        # event = buffer.read(EVENT_SIZE)
 
-        while event:
+        while event := buffer.read(EVENT_SIZE):
             ev_type, ev_code, value = struct.unpack(STRUCT_FORMAT, event)[2:]
-
             if ev_type == 3:
-                if ev_code == 0:
-                    x.value = value
-                elif ev_code == 1:
-                    y.value = value
-
-            event = buffer.read(EVENT_SIZE)
-
-    return x, y
+                if ev_code == 53:
+                    pos[CUR_TRACK * 2] = value
+                elif ev_code == 54:
+                    pos[CUR_TRACK * 2 + 1] = value
+                elif ev_code == 47:
+                    CUR_TRACK = value
+                elif ev_code == 57 and value == UNSIGNED_LIMIT:
+                    pos[CUR_TRACK * 2] = -1
+                    pos[CUR_TRACK * 2 + 1] = -1
+                    CUR_TRACK = 0
 
 
 def get_absinfo(device):
