@@ -12,6 +12,7 @@ import pygame
 
 SCALE = 6
 DEVICE = get_touchpad_device()
+MULTI_FINGER = 5
 FPS = 60
 
 
@@ -22,7 +23,7 @@ MAX_Y = absinfo[1][1] // SCALE
 WINDOW = MAX_X, MAX_Y
 
 # evdev process setup
-pos = mp.Array("i", [-1] * 10)
+pos = mp.Array("i", [-1] * (MULTI_FINGER * 2))
 event_process = mp.Process(target=touchpad_evdev, args=(pos, DEVICE))
 event_process.start()
 
@@ -58,7 +59,7 @@ def is_quit_event(events):
     return False
 
 
-pointers = [Square(), Square(), Square(), Square(), Square()]
+pointers = [Square() for i in range(MULTI_FINGER)]
 
 pygame.mouse.set_visible(False)
 while True:
@@ -66,12 +67,15 @@ while True:
         break
 
     base_surface.fill((0, 0, 0))
-    # print(pos[:])
+
     for i, pointer in enumerate(pointers):
         p = (pos[i * 2] // SCALE, pos[i * 2 + 1] // SCALE)
         if p == (-1, -1):
             continue
-        pointer.rect.update((p[0] - 5, p[1] - 5), pointer.rect.size)
+
+        pointer.rect.update(
+            (p[0] - pointer.OFFSET[0], p[1] - pointer.OFFSET[1]), pointer.rect.size
+        )
         base_surface.blit(pointer.surf, pointer.rect)
 
     pygame.display.update()
